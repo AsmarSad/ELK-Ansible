@@ -1,0 +1,72 @@
+---
+- name: Ensure no other process holds the apt lock
+  shell: |
+    lsof /var/lib/dpkg/lock-frontend | awk 'NR>1 {print $2}' | xargs -r kill -9
+    sleep 10
+  retries: 5
+  delay: 10
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install required dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - curl
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: Add Elastic GPG key
+  shell: |
+    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elastic-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/elastic-archive-keyring.gpg
+
+- name: Add Elastic repository
+  copy:
+    content: |
+      deb [signed-by=/usr/share/keyrings/elastic-archive-keyring.gpg] https://artifacts.elastic.co/packages/{{ elasticsearch_version }}/apt stable main
+    dest: /etc/apt/sources.list.d/elastic-{{ elasticsearch_version }}.list
+
+- name: Update apt cache for Elastic packages
+  apt:
+    update_cache: yes
+
+- name: Install Java (required for Elasticsearch and Logstash)
+  apt:
+    name:
+      - openjdk-11-jdk
+    state: present
+    update_cache: yes
+
+- name: Install Elasticsearch
+  apt:
+    name: elasticsearch
+    state: present
+    update_cache: yes
+  notify: Start Elasticsearch
+
+- name: Install Logstash
+  apt:
+    name: logstash
+    state: present
+    update_cache: yes
+  notify: Start Logstash
+
+- name: Install Kibana
+  apt:
+    name: kibana
+    state: present
+    update_cache: yes
+  notify: Start Kibana
+
+- name: Configure Kibana to listen on all interfaces
+  lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#server.host: "localhost"'
+    line: 'server.host: "0.0.0.0"'
+  notify: Restart Kibana
+

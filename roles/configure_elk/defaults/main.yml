@@ -1,0 +1,5 @@
+---
+elasticsearch_version: "8.x"
+logstash_version: "8.x"
+kibana_version: "8.x"
+

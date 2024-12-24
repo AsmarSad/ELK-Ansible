@@ -1,0 +1,16 @@
+---
+- name: Create DigitalOcean Droplet and Upload SSH Key
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - secrets.yml 
+  roles:
+    - provision_droplet
+
+- name: Configure and Install ELK Stack on the Droplet
+  hosts: elk_droplet
+  gather_facts: yes
+  become: yes
+  roles:
+    - configure_elk
+

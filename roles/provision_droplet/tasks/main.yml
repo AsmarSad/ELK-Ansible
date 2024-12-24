@@ -1,0 +1,35 @@
+---
+- name: Upload SSH key to DigitalOcean
+  community.digitalocean.digital_ocean_sshkey:
+    oauth_token: "{{ do_token }}"
+    state: present
+    name: "elk-ssh-key"
+    ssh_pub_key: "{{ lookup('file', ssh_pub_key_path) }}"
+  register: ssh_key_response
+
+- name: Set the SSH fingerprint
+  set_fact:
+    ssh_fingerprint: "{{ ssh_key_response.data.ssh_key.fingerprint }}"
+
+- name: Create a DigitalOcean droplet
+  community.digitalocean.digital_ocean_droplet:
+    oauth_token: "{{ do_token }}"
+    name: "elk-server"
+    region: "nyc3"
+    size: "s-2vcpu-4gb"
+    image: "ubuntu-22-04-x64"
+    ssh_keys: "{{ ssh_fingerprint }}"
+  register: droplet
+
+- name: Wait for the droplet to become reachable
+  wait_for:
+    host: "{{ droplet.data.droplet.networks.v4[0].ip_address }}"
+    port: 22
+    timeout: 300
+
+- name: Add droplet IP to inventory dynamically
+  add_host:
+    name: elk_droplet
+    ansible_host: "{{ droplet.data.droplet.networks.v4[0].ip_address }}"
+    ansible_user: root
+
